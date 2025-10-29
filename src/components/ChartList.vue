@@ -18,12 +18,17 @@ interface ChartWithVersions extends Chart {
   versions: Chart[]
 }
 
+interface ChangelogEntry {
+  version: string
+  changes: string[]
+}
 
 const baseUrl = import.meta.env.VITE_CHARTMUSEUM_URL
 
 const charts = ref<ChartWithVersions[]>([])
 const selectedChart = ref<Chart | null>(null)
 const valuesContent = ref<string>('')
+const changelogEntries = ref<ChangelogEntry[]>([])
 const expanded = ref<string[]>([])
 
 const headers = [
@@ -40,6 +45,11 @@ const versionHeaders = [
   {title: 'Description', key: 'description', sortable: false},
   {title: 'Created', key: 'created', sortable: false},
   {title: '', key: 'actions', width: 60, sortable: false, align: 'end'},
+] as const
+
+const changelogHeaders = [
+  {title: 'Version', key: 'version', sortable: false, width: 120},
+  {title: 'Changes', key: 'changes', sortable: false},
 ] as const
 
 const downloadChart = (chart: Chart) => {
@@ -119,9 +129,46 @@ const parseTar = (arrayBuffer: ArrayBuffer): Map<string, Uint8Array> => {
   return files
 }
 
+const parseChangelog = (content: string): ChangelogEntry[] => {
+  const entries: ChangelogEntry[] = []
+  const lines = content.split('\n')
+
+  let currentVersion: string | undefined = undefined
+  let currentChanges: string[] = []
+
+  for (const line of lines) {
+    const versionMatch = line.match(/^###\s+(\d+\.\d+\.\d+)/)
+    if (versionMatch) {
+      // Save previous entry
+      if (currentVersion) {
+        entries.push({
+          version: currentVersion,
+          changes: currentChanges.filter(c => c.trim() !== '')
+        })
+      }
+      // Start new entry
+      currentVersion = versionMatch[1]
+      currentChanges = []
+    } else if (line.trim().startsWith('*') && currentVersion) {
+      currentChanges.push(line.trim().substring(1).trim())
+    }
+  }
+
+  // Save last entry
+  if (currentVersion) {
+    entries.push({
+      version: currentVersion,
+      changes: currentChanges.filter(c => c.trim() !== '')
+    })
+  }
+
+  return entries.reverse()
+}
+
 const downloadAndExtractChart = async (chart: Chart) => {
   selectedChart.value = chart
   valuesContent.value = ''
+  changelogEntries.value = []
 
   try {
     console.log(chart)
@@ -134,10 +181,14 @@ const downloadAndExtractChart = async (chart: Chart) => {
     const files = parseTar(decompressed.buffer)
 
     let valuesFile: Uint8Array | undefined
+    let changelogFile: Uint8Array | undefined
+
     for (const [filename, content] of files.entries()) {
       if (filename.endsWith('values.yaml') || filename.endsWith('values.yml')) {
         valuesFile = content
-        break
+      }
+      if (filename.endsWith('CHANGELOG.md')) {
+        changelogFile = content
       }
     }
 
@@ -145,6 +196,13 @@ const downloadAndExtractChart = async (chart: Chart) => {
       valuesContent.value = new TextDecoder().decode(valuesFile)
     } else {
       console.error('values.yaml not found in the chart archive')
+    }
+
+    if (changelogFile) {
+      const changelogContent = new TextDecoder().decode(changelogFile)
+      changelogEntries.value = parseChangelog(changelogContent)
+    } else {
+      console.log('CHANGELOG.md not found in the chart archive')
     }
   } catch (err) {
     console.error('Error downloading chart:', err)
@@ -161,7 +219,7 @@ onMounted(() => {
     <v-row>
       <v-col cols="7">
         <v-card>
-          <v-card-title>Charts on {{ baseUrl }}</v-card-title>
+          <v-card-title class="font-weight-light">Charts on {{ baseUrl }}</v-card-title>
           <v-card-text>
             <v-data-table :headers="headers" :items="charts" v-model:expanded="expanded" item-value="name"
                           @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item)"
@@ -181,7 +239,7 @@ onMounted(() => {
                                   @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item)"
                                   hide-default-footer density="compact">
                       <template v-slot:item.actions="{ item }">
-                        <v-btn icon="mdi-download" size="small" variant="text" @click.stop="downloadChart(item)" />
+                        <v-btn icon="mdi-download" size="small" variant="text" @click.stop="downloadChart(item)"/>
                       </template>
                     </v-data-table>
                   </td>
@@ -198,9 +256,26 @@ onMounted(() => {
       </v-col>
       <v-col cols="5">
         <v-card>
-          <v-card-title>{{ selectedChart?.name }}</v-card-title>
+          <v-card-title class="font-weight-light">Chart: {{ selectedChart?.name }} Version {{ selectedChart?.version }}</v-card-title>
+        </v-card>
+        <v-card class="mt-4">
+          <v-card-title class="font-weight-light" style="font-size: large">Default Values</v-card-title>
           <v-card-text v-if="valuesContent">
-            <monaco-editor v-model="valuesContent" language="yaml" :height="800" read-only/>
+            <monaco-editor v-model="valuesContent" language="yaml" :height="600" read-only/>
+            <v-divider class="my-4" v-if="changelogEntries.length > 0"></v-divider>
+          </v-card-text>
+        </v-card>
+        <v-card class="mt-4" v-if="changelogEntries.length > 0">
+          <v-card-title class="font-weight-light" style="font-size: large">Changelog</v-card-title>
+          <v-card-text>
+            <v-data-table :headers="changelogHeaders" :items="changelogEntries" :items-per-page="-1"
+                          hide-default-footer density="compact" height="300">
+              <template v-slot:item.changes="{ item }">
+                <ul class="my-2">
+                  <li v-for="(change, idx) in item.changes" :key="idx">{{ change }}</li>
+                </ul>
+              </template>
+            </v-data-table>
           </v-card-text>
         </v-card>
       </v-col>
