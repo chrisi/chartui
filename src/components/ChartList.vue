@@ -42,7 +42,7 @@ const headers = [
 const versionHeaders = [
   {title: 'Chart-Version', key: 'version', sortable: false},
   {title: 'App-Version', key: 'appVersion', sortable: false},
-  {title: 'Description', key: 'description', sortable: false},
+  {title: 'Changelog', key: 'changelog', sortable: false},
   {title: 'Created', key: 'created', sortable: false},
   {title: '', key: 'actions', width: 60, sortable: false, align: 'end'},
 ] as const
@@ -171,7 +171,6 @@ const downloadAndExtractChart = async (chart: Chart) => {
   changelogEntries.value = []
 
   try {
-    console.log(chart)
     const url = `${baseUrl}/${chart.urls[0]}`
     const response = await axios.get(url, {
       responseType: 'arraybuffer'
@@ -209,6 +208,14 @@ const downloadAndExtractChart = async (chart: Chart) => {
   }
 }
 
+const getChangelogForVersion = (version: string): string[] => {
+  const entry = changelogEntries.value.find(e => e.version === version)
+  if (entry && entry.changes.length > 0) {
+    return entry.changes
+  }
+  return ['No changelog available']
+}
+
 onMounted(() => {
   fetchCharts()
 })
@@ -224,20 +231,17 @@ onMounted(() => {
             <v-data-table :headers="headers" :items="charts" v-model:expanded="expanded" item-value="name"
                           @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item)"
                           hide-default-footer show-expand density="compact">
-              <template v-slot:item.name="{ item }">
-                <span class="font-weight-bold">{{ item.name }}</span>
-              </template>
-              <template v-slot:item.description="{ item }">
-                <span class="text-truncate" style="max-width: 300px; display: inline-block;">
-                  {{ item.description }}
-                </span>
-              </template>
               <template v-slot:expanded-row="{ columns, item }">
                 <tr>
                   <td :colspan="columns.length">
                     <v-data-table :headers="versionHeaders" :items="item.versions"
                                   @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item)"
                                   hide-default-footer density="compact">
+                      <template v-slot:item.changelog="{ item }">
+                        <ul class="my-2 pl-4">
+                          <li v-for="(change, idx) in getChangelogForVersion(item.version)" :key="idx">{{ change }}</li>
+                        </ul>
+                      </template>
                       <template v-slot:item.actions="{ item }">
                         <v-btn icon="mdi-download" size="small" variant="text" @click.stop="downloadChart(item)"/>
                       </template>
@@ -256,7 +260,9 @@ onMounted(() => {
       </v-col>
       <v-col cols="5">
         <v-card>
-          <v-card-title class="font-weight-light">Chart: {{ selectedChart?.name }} Version {{ selectedChart?.version }}</v-card-title>
+          <v-card-title class="font-weight-light">
+            Chart: {{ selectedChart?.name }} Version {{ selectedChart?.version }}
+          </v-card-title>
         </v-card>
         <v-card class="mt-4">
           <v-card-title class="font-weight-light" style="font-size: large">Default Values</v-card-title>
@@ -284,9 +290,5 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.text-truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+
 </style>
