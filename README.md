@@ -4,7 +4,7 @@
 
 ChartUI is a very simple UI for [ChartMuseum](https://chartmuseum.com/).
 
-What is can do currently:
+What it can do currently:
 
 * It lists all helmcharts and its versions.
 * It shows the default values of the helmchart.
@@ -16,6 +16,6 @@ What is can do currently:
 
 There is one env-variable that needs to be set when building the node package:
 
-* VITE_CHARTMUSEUM_URL points to the url of your chartmuseum instance.
+* VITE_CHARTMUSEUM_URL points to the url of your ChartMuseum instance.
 
-There is currently no support secured chartmuseum instances.  
+There is currently no support for secured ChartMuseum instances.  
