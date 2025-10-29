@@ -14,7 +14,7 @@ interface Chart {
   description: string
 }
 
-const baseUrl = 'https://charts.prd.gtidev.net'
+const baseUrl = import.meta.env.VITE_CHARTMUSEUM_URL
 
 const charts = ref<Chart[]>([])
 const selectedChart = ref<Chart | null>(null)

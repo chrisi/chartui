@@ -24,6 +24,8 @@ jobs:
 
       - name: Build the application
         run: yarn build
+        env:
+          VITE_CHARTMUSEUM_URL: https://charts.prd.gtidev.net
 
       - name: Build Docker Image
         run: docker build --build-arg dist=dist -t dockerhub.gtidev.net/kubetools/chartui .
