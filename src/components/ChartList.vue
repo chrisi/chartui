@@ -32,23 +32,24 @@ const changelogEntries = ref<ChangelogEntry[]>([])
 const expanded = ref<string[]>([])
 
 const headers = [
-  {title: 'Name', key: 'name', sortable: true},
-  {title: 'Chart-Version', key: 'version', sortable: true},
-  {title: 'App-Version', key: 'appVersion', sortable: true},
+  {title: 'Name', key: 'name', sortable: true, width: 178},
+  {title: 'Chart-Version', key: 'version', sortable: true, width: 200},
+  {title: 'App-Version', key: 'appVersion', sortable: true, width: 140},
   {title: 'Description', key: 'description', sortable: false},
-  {title: 'Created', key: 'created', sortable: true},
+  {title: 'Created', key: 'created', sortable: true, width: 216},
 ] as const
 
 const versionHeaders = [
-  {title: 'Chart-Version', key: 'version', sortable: false},
-  {title: 'App-Version', key: 'appVersion', sortable: false},
+  {title: '', key: 'indent', sortable: false, width: 178},
+  {title: 'Chart-Version', key: 'version', sortable: false, width: 200},
+  {title: 'App-Version', key: 'appVersion', sortable: false, width: 140},
   {title: 'Changelog', key: 'changelog', sortable: false},
-  {title: 'Created', key: 'created', sortable: false},
-  {title: '', key: 'actions', width: 60, sortable: false, align: 'end'},
+  {title: 'Created', key: 'created', sortable: false, width: 200},
+  {title: '', key: 'actions', sortable: false, width: 50, lign: 'end'},
 ] as const
 
 const changelogHeaders = [
-  {title: 'Version', key: 'version', sortable: false, width: 120},
+  {title: 'Version', key: 'version', sortable: false, width: 200},
   {title: 'Changes', key: 'changes', sortable: false},
 ] as const
 
@@ -165,10 +166,8 @@ const parseChangelog = (content: string): ChangelogEntry[] => {
   return entries.reverse()
 }
 
-const downloadAndExtractChart = async (chart: Chart) => {
+const downloadAndExtractChart = async (chart: Chart, reloadChangelog: boolean) => {
   selectedChart.value = chart
-  valuesContent.value = ''
-  changelogEntries.value = []
 
   try {
     const url = `${baseUrl}/${chart.urls[0]}`
@@ -197,7 +196,7 @@ const downloadAndExtractChart = async (chart: Chart) => {
       console.error('values.yaml not found in the chart archive')
     }
 
-    if (changelogFile) {
+    if (changelogFile && reloadChangelog) {
       const changelogContent = new TextDecoder().decode(changelogFile)
       changelogEntries.value = parseChangelog(changelogContent)
     } else {
@@ -226,20 +225,29 @@ onMounted(() => {
     <v-row>
       <v-col cols="7">
         <v-card>
-          <v-card-title class="font-weight-light">Charts on {{ baseUrl }}</v-card-title>
+          <v-card-title class="font-weight-light d-flex align-center">Charts on {{ baseUrl }}
+            <v-spacer></v-spacer>
+            <v-btn
+              href="https://charts.prd.gtidev.net/api/charts" target="_blank"
+              icon="mdi-open-in-new" size="small" variant="text" title="Open in ChartMuseum"
+            />
+          </v-card-title>
           <v-card-text>
             <v-data-table :headers="headers" :items="charts" v-model:expanded="expanded" item-value="name"
-                          @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item)"
-                          hide-default-footer show-expand density="compact">
+                          @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item,true)"
+                          hide-default-footer show-expand>
               <template v-slot:expanded-row="{ columns, item }">
                 <tr>
-                  <td :colspan="columns.length">
+                  <td :colspan="columns.length" class="pa-0">
                     <v-data-table :headers="versionHeaders" :items="item.versions"
-                                  @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item)"
-                                  hide-default-footer density="compact">
+                                  @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item,false)"
+                                  hide-default-footer hide-default-header density="compact">
                       <template v-slot:item.changelog="{ item }">
                         <ul class="my-2 pl-4">
-                          <li v-for="(change, idx) in getChangelogForVersion(item.version)" :key="idx">{{ change }}</li>
+                          <li v-for="(change, idx) in getChangelogForVersion(item.version)" :key="idx">{{
+                              change
+                            }}
+                          </li>
                         </ul>
                       </template>
                       <template v-slot:item.actions="{ item }">
