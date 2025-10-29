@@ -228,8 +228,16 @@ onMounted(() => {
           <v-card-title class="font-weight-light d-flex align-center">Charts on {{ baseUrl }}
             <v-spacer></v-spacer>
             <v-btn
+              href="https://chartmuseum.com" target="_blank"
+              icon="mdi-ship-wheel" size="small" variant="text" title="Open ChartMuseum Homepage"
+            />
+            <v-btn
+              href="https://github.com/chrisi/chartui" target="_blank"
+              icon="mdi-github" size="small" variant="text" title="Open Project on GitHub"
+            />
+            <v-btn
               href="https://charts.prd.gtidev.net/api/charts" target="_blank"
-              icon="mdi-open-in-new" size="small" variant="text" title="Open in ChartMuseum"
+              icon="mdi-open-in-new" size="small" variant="text" title="Open API Endpoint"
             />
           </v-card-title>
           <v-card-text>
@@ -276,7 +284,6 @@ onMounted(() => {
           <v-card-title class="font-weight-light" style="font-size: large">Default Values</v-card-title>
           <v-card-text v-if="valuesContent">
             <monaco-editor v-model="valuesContent" language="yaml" :height="600" read-only/>
-            <v-divider class="my-4" v-if="changelogEntries.length > 0"></v-divider>
           </v-card-text>
         </v-card>
         <v-card class="mt-4" v-if="changelogEntries.length > 0">
