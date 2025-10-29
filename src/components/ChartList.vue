@@ -14,11 +14,17 @@ interface Chart {
   description: string
 }
 
+interface ChartWithVersions extends Chart {
+  versions: Chart[]
+}
+
+
 const baseUrl = import.meta.env.VITE_CHARTMUSEUM_URL
 
-const charts = ref<Chart[]>([])
+const charts = ref<ChartWithVersions[]>([])
 const selectedChart = ref<Chart | null>(null)
 const valuesContent = ref<string>('')
+const expanded = ref<string[]>([])
 
 const headers = [
   {title: 'Name', key: 'name', sortable: true},
@@ -26,7 +32,25 @@ const headers = [
   {title: 'App-Version', key: 'appVersion', sortable: true},
   {title: 'Description', key: 'description', sortable: false},
   {title: 'Created', key: 'created', sortable: true},
-]
+] as const
+
+const versionHeaders = [
+  {title: 'Chart-Version', key: 'version', sortable: false},
+  {title: 'App-Version', key: 'appVersion', sortable: false},
+  {title: 'Description', key: 'description', sortable: false},
+  {title: 'Created', key: 'created', sortable: false},
+  {title: '', key: 'actions', width: 60, sortable: false, align: 'end'},
+] as const
+
+const downloadChart = (chart: Chart) => {
+  const url = `${baseUrl}/${chart.urls[0]}`
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${chart.name}-${chart.version}.tgz`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
 
 const fetchCharts = async () => {
   try {
@@ -35,6 +59,18 @@ const fetchCharts = async () => {
     charts.value = Object.keys(chartsData).map(chartName => {
       const chartVersions = chartsData[chartName]
       const latestVersion = chartVersions[0] // First version is typically the latest
+
+      // Map all versions
+      const allVersions = chartVersions.map((v: any) => ({
+        name: chartName,
+        version: v.version || 'N/A',
+        appVersion: v.appVersion || 'N/A',
+        type: v.type || 'N/A',
+        created: v.created ? new Date(v.created).toLocaleString() : 'N/A',
+        urls: v.urls,
+        description: v.description || 'No description available',
+      }))
+
       return {
         name: chartName,
         version: latestVersion?.version || 'N/A',
@@ -43,7 +79,9 @@ const fetchCharts = async () => {
         created: latestVersion?.created ? new Date(latestVersion.created).toLocaleString() : 'N/A',
         urls: latestVersion?.urls,
         description: latestVersion?.description || 'No description available',
+        versions: allVersions,
       }
+
     })
   } catch (err) {
     console.error('Error fetching charts:', err)
@@ -81,9 +119,7 @@ const parseTar = (arrayBuffer: ArrayBuffer): Map<string, Uint8Array> => {
   return files
 }
 
-const downloadAndExtractChart = async (ev: MouseEvent, row: { item: Chart }) => {
-  const chart = row.item
-
+const downloadAndExtractChart = async (chart: Chart) => {
   selectedChart.value = chart
   valuesContent.value = ''
 
@@ -127,7 +163,9 @@ onMounted(() => {
         <v-card>
           <v-card-title>Charts on {{ baseUrl }}</v-card-title>
           <v-card-text>
-            <v-data-table :headers="headers" :items="charts" @click:row="downloadAndExtractChart" hide-default-footer>
+            <v-data-table :headers="headers" :items="charts" v-model:expanded="expanded" item-value="name"
+                          @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item)"
+                          hide-default-footer show-expand density="compact">
               <template v-slot:item.name="{ item }">
                 <span class="font-weight-bold">{{ item.name }}</span>
               </template>
@@ -135,6 +173,19 @@ onMounted(() => {
                 <span class="text-truncate" style="max-width: 300px; display: inline-block;">
                   {{ item.description }}
                 </span>
+              </template>
+              <template v-slot:expanded-row="{ columns, item }">
+                <tr>
+                  <td :colspan="columns.length">
+                    <v-data-table :headers="versionHeaders" :items="item.versions"
+                                  @click:row="(ev: MouseEvent, row: any) => downloadAndExtractChart(row.item)"
+                                  hide-default-footer density="compact">
+                      <template v-slot:item.actions="{ item }">
+                        <v-btn icon="mdi-download" size="small" variant="text" @click.stop="downloadChart(item)" />
+                      </template>
+                    </v-data-table>
+                  </td>
+                </tr>
               </template>
               <template v-slot:no-data>
                 <v-alert type="info" class="ma-4">
